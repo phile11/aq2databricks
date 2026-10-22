@@ -1,0 +1,22 @@
+name: airlens
+version: 1.0.0
+config-version: 2
+
+profile: airlens
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  airlens:
+    +catalog: airlens
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+
+seeds:
+  airlens:
+    +catalog: airlens
