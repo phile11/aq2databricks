@@ -19,6 +19,10 @@ target/
 dbt_packages/
 logs/
 dbt_modules/
+*.duckdb
+*.db
+*.wal
+*.tmp/
 
 
 #IDE and OS

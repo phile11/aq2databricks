@@ -1,0 +1,5 @@
+{
+    "duckdb.defaultDatabase": "memory",
+    "duckdb.databases": [],
+    "sqltools.useNodeRuntime": true
+}

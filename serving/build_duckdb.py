@@ -10,7 +10,6 @@ from typing import Any
 
 import duckdb
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LANDING = PROJECT_ROOT / "resources" / "landing"
 DEFAULT_DATABASE = Path(__file__).resolve().parent / "airlens.duckdb"
