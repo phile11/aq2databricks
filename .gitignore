@@ -1,0 +1,44 @@
+#Custom for project
+/resources/landing
+
+#Environment and Secrets
+.env
+*.envsecrets
+.yamlcredentials.json
+.cache/
+
+#Python and Data Tools
+__pycache__/
+*.py[cod]
+build/
+dist/
+wheels/
+*.egg-info
+.venv/
+venv/
+.ipynb_checkpoints
+data/*.parquet*.csv*.json
+target/
+dbt_packages/
+logs/
+dbt_modules/
+*.duckdb
+*.db
+*.wal
+*.tmp/
+
+
+#IDE and OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.history/ 
+# Default .gitignore content added by dbt Cloud# you shouldn't commit these into source control
+# these are the default directory names, adjust/add to fit your needs
+target/
+dbt_packages/
+logs/
+# end dbt Cloud content
