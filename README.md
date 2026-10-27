@@ -1,153 +1,305 @@
 # AirLens 🌎
-### End-to-End Environmental Data Engineering Platform
+### Environmental Data Engineering with Databricks, dbt, and Airflow
 
-AirLens is an end-to-end data engineering project that integrates weather and air-quality data from public APIs into an analytics-ready data platform. It demonstrates how to ingest data from multiple external sources, organize and transform it using a medallion architecture, orchestrate the pipeline, and serve curated datasets through an interactive dashboard.
+AirLens is an end-to-end data engineering project that collects environmental data from public APIs, orchestrates ingestion and cloud processing, transforms data into analytical models, and serves interactive visualizations through Streamlit.
 
-The project combines **Python, Databricks, dbt, Apache Airflow, DuckDB, and Streamlit** to demonstrate a complete workflow from API ingestion to data exploration.
+The project demonstrates modern data engineering practices, including API ingestion, medallion architecture, data harmonization, SQL-based transformations, workflow orchestration, data quality testing, and analytical serving.
+
+A key architectural decision is the separation of **cloud data processing from interactive dashboard serving**. Databricks and dbt handle cloud-based processing and analytical modeling, while DuckDB and Streamlit provide a lightweight local analytics experience without triggering cloud compute for each dashboard interaction.
+
+AirLens demonstrates practical experience with:
+
+- Building Python-based ingestion pipelines from multiple public APIs.
+- Designing a medallion architecture in Databricks.
+- Harmonizing data from sources with different structures and measurement conventions.
+- Developing reusable SQL transformations and analytical marts with dbt.
+- Applying data quality tests and incremental modeling strategies.
+- Orchestrating dependent workflows with Apache Airflow.
+- Separating cloud transformation workloads from interactive analytical serving.
+- Building a lightweight analytics interface with DuckDB and Streamlit.
+- Considering data freshness, source traceability, and cloud compute efficiency in architectural decisions.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Sources["External Data Sources"]
-        OW["OpenWeather API"]
-        WAQI["WAQI API"]
-        OA["OpenAQ API"]
-    end
+    A[OpenWeather API]
+    B[WAQI API]
+    C[OpenAQ API]
 
-    subgraph Ingestion["Ingestion"]
-        PY["Python Ingestion Script"]
-        VOL["Databricks Unity Catalog Volume"]
-    end
+    A --> D[Python Ingestion]
+    B --> D
+    C --> D
 
-    subgraph Lakehouse["Databricks Medallion Architecture"]
-        BR["Bronze — Raw Data"]
-        SI["Silver — Harmonized Data"]
-        GO["Gold — Analytics-Ready Models"]
-        BR --> SI --> GO
-    end
+    D --> E[Local JSON Landing Files]
+    D --> F[Databricks Unity Catalog Volume]
 
-    subgraph Serving["Analytics and Serving"]
-        DU["DuckDB"]
-        ST["Streamlit Dashboard"]
-        DU --> ST
-    end
+    F --> G[Bronze Layer]
+    G --> H[Silver Layer]
+    H --> I[dbt Staging Models]
+    I --> J[Gold Analytical Marts]
 
-    AF["Apache Airflow — Pipeline Orchestration"]
-    DBT["dbt — Data Transformations"]
+    E --> K[DuckDB Serving Database]
+    K --> L[Streamlit Dashboard]
 
-    OW --> PY
-    WAQI --> PY
-    OA --> PY
-    PY --> VOL
-    VOL --> BR
-    DBT -. "Builds Gold models" .-> GO
-    GO --> DU
-
-    AF -. "1) Orchestrates ingestion and pipeline tasks" .-> PY
-    AF -. "2) Loads Raw data in the Landing Volume in UC" .-> VOL
-    AF -. "3) Runs Bronze and Silver notebooks in Databricks" .-> BR
-    AF -. "4) Triggers transformation workflow" .-> DBT
-    AF -. "5) Refreshes DuckDB" .-> DU
+    M[Apache Airflow] -. Orchestrates .-> D
+    M -. Coordinates upload .-> F
+    M -. Triggers processing .-> G
+    M -. Triggers dbt build .-> I
+    M -. Refreshes serving data .-> K
 ```
 
-### Pipeline Overview
+The architecture contains two complementary data paths coordinated by Airflow:
 
-1. **Data ingestion:** Python retrieves environmental data from the OpenWeather, World Air Quality Index (WAQI), and OpenAQ APIs and uploads the ingested data to a Databricks Unity Catalog Volume.
-2. **Bronze layer:** Raw source data is organized in the Bronze layer to preserve source-level information for downstream processing.
-3. **Silver layer:** Data from multiple sources is harmonized into a more consistent structure for analysis.
-4. **Gold layer:** dbt models transform curated data into analytics-ready datasets within Databricks.
-5. **Serving layer:** DuckDB reads the Gold-layer output and provides a queryable layer for downstream analytics.
-6. **Dashboard:** Streamlit presents environmental data through an interactive interface.
-7. **Orchestration:** Apache Airflow automates the end-to-end workflow, coordinating ingestion, Databricks processing, dbt model builds, and downstream analytics refreshes.
+- **Cloud processing path:** API data is uploaded to a Databricks Unity Catalog Volume, processed through Bronze and Silver layers, and modeled into Gold analytical marts using dbt.
+- **Local serving path:** Locally landed JSON data is loaded into DuckDB, which powers the Streamlit dashboard.
+
+The paths are intentionally decoupled. The dashboard queries DuckDB rather than directly querying Databricks Gold marts. This keeps interactive filtering independent of Databricks compute and avoids initiating cloud workloads for routine dashboard interactions.
 
 ## Technology Stack
 
 | Technology | Purpose |
 |---|---|
-| Python | API integration and data ingestion |
-| REST APIs | External weather and air-quality data sources |
-| Databricks Free Edition | Lakehouse processing and medallion architecture |
-| Unity Catalog Volumes | Storage and transfer of ingested files |
-| SQL | Data transformation and analytical querying |
-| dbt | SQL-based transformation models and Gold-layer builds |
-| Apache Airflow | End-to-end pipeline orchestration |
-| DuckDB | Querying curated data for downstream analytics |
-| Streamlit | Interactive dashboard and data exploration |
+| Python | API ingestion, data handling, and local serving-data preparation |
+| Apache Airflow | Workflow orchestration, scheduling, retries, and task dependencies |
+| Databricks | Cloud-based data processing and medallion architecture |
+| Unity Catalog Volumes | Storage for ingested source files |
+| dbt | SQL transformations, analytical modeling, and data quality tests |
+| DuckDB | Local analytical serving database |
+| Streamlit | Interactive environmental analytics dashboard |
+| Docker Compose | Local Airflow environment |
+| uv | Python dependency and project management |
 
 ## Data Sources
 
-AirLens integrates three public data sources:
+AirLens integrates three public environmental data APIs:
 
-- [OpenWeather](https://openweathermap.org/api) — weather and atmospheric data.
-- [World Air Quality Index (WAQI)](https://aqicn.org/api/) — air-quality observations.
-- [OpenAQ](https://openaq.org/) — air-quality measurements from monitoring sources.
+- **OpenWeather:** Weather observations and related atmospheric conditions.
+- **World Air Quality Index (WAQI):** Air quality observations and station-level information.
+- **OpenAQ:** Open air quality measurements and monitoring-station data.
 
-These sources provide complementary perspectives on environmental conditions and support analysis across weather and air-quality datasets.
+The ingestion process queries configured cities, collects source responses, and preserves the original payloads for downstream processing.
 
-## Engineering Concepts Demonstrated
+Source records are stored in JSON envelopes containing metadata such as the source, city, ingestion run identifier, fetch timestamp, and original API response.
 
-### Multi-source API ingestion
-Integrates multiple external APIs into a shared data pipeline, bringing together data from different source systems.
+The ingestion workflow includes request timeouts, retry handling with exponential backoff for applicable rate-limit and server errors, and separate handling for authentication failures.
 
-### Medallion architecture
-Separates raw ingestion, harmonized data, and analytics-ready outputs into Bronze, Silver, and Gold layers.
+## Data Pipeline
 
-### Data transformation with dbt
-Uses dbt to build transformation models in Databricks, creating curated datasets for downstream consumption.
+### 1. API ingestion
 
-### Workflow orchestration with Airflow
-Automates the end-to-end pipeline, coordinating ingestion and transformation tasks so the workflow can run without manually triggering each stage.
+A Python ingestion script retrieves data from the three APIs for configured cities and writes the results to local JSON landing files.
 
-### Decoupled analytics serving
-Uses DuckDB as a query layer between curated data and the Streamlit dashboard, separating data processing from data presentation.
+The local files provide an input to the DuckDB serving workflow and are also uploaded to Databricks for cloud processing.
+
+### 2. Databricks medallion architecture
+
+Ingested files are uploaded to a Databricks Unity Catalog Volume and processed through Bronze and Silver layers.
+
+- **Bronze:** Preserves source-specific raw data for traceability and downstream processing.
+- **Silver:** Harmonizes data from multiple sources into consistent structures suitable for analytical modeling.
+
+This layered approach separates source ingestion from data standardization and prepares data for downstream transformations.
+
+### 3. dbt transformations and Gold marts
+
+A dbt Cloud job builds staging models and analytical marts on Databricks.
+
+The project includes staging models for weather, air quality, and monitoring stations, along with three analytical marts:
+
+| Model | Purpose |
+|---|---|
+| `mart_city_air_quality` | Organizes hourly city-level air quality measurements by source and retains the corresponding AQI scale. |
+| `mart_city_daily` | Produces incremental daily analytical data using a merge strategy and a defined unique key. |
+| `mart_station_coverage` | Provides city-level monitoring coverage information. |
+
+The models support downstream analysis while applying consistent transformation logic and data quality checks.
+
+### 4. Local analytics with DuckDB
+
+DuckDB provides a lightweight analytical serving layer for the dashboard.
+
+The serving script reads the local JSON landing files, prepares analytical tables, and refreshes the local DuckDB database.
+
+This design avoids requiring a cloud database query for each dashboard interaction. Users can change filters and explore the locally available data without triggering Databricks jobs.
+
+**Important architectural distinction:** DuckDB currently builds its serving tables from local landing files, not from the dbt Gold marts. The cloud transformation path and local serving path are orchestrated together but remain separate data paths.
+
+### 5. Interactive Streamlit dashboard
+
+The Streamlit dashboard provides an interactive interface for exploring environmental conditions.
+
+Dashboard capabilities include:
+
+- Global air quality mapping.
+- Pollutant trends for selected cities.
+- Air quality comparisons across cities.
+- Configurable PM2.5 threshold alerts.
+- Monitoring-station coverage.
+
+The dashboard queries DuckDB, allowing users to adjust filters without launching cloud processing. Data freshness depends on the most recent local data refres. Airflow is used to try to ensure freshness as the local DuckDb refresh step is the last task in the pipeline DAG.
+
+<img src="images/map_aqi.svg" alt="map" width="400">
+
+<img src="images/city_data.svg" alt="city data" width="400">
+
+<img src="images/airlens_alerts" alt="alerts" width="400">
+
+## Data Quality and Modeling Considerations
+
+AirLens incorporates data validation and explicit handling of differences between environmental data sources.
+
+- **dbt tests:** Schema-level checks include `not_null`, `unique`, and `accepted_values` tests where appropriate.
+- **Incremental modeling:** The daily analytical mart uses an incremental merge strategy with a defined unique key.
+- **AQI scale preservation:** OpenWeather's 1–5 air quality index and WAQI's US EPA-style 0–500 index are treated as distinct scales rather than averaged or compared as equivalent values.
+- **Source traceability:** Ingestion metadata preserves source identity and fetch timing.
+- **PM2.5 interpretation:** Dashboard categories are descriptive snapshot classifications, not substitutes for regulatory assessments based on time-weighted averages.
+
+These practices help maintain consistency and make the limitations of multi-source environmental data explicit.
+
+## Workflow Orchestration with Airflow
+
+Apache Airflow coordinates the pipeline through the `airlens_daily_pipeline` DAG.
+
+The workflow is configured for daily scheduling and includes task dependencies, retry behavior, exponential backoff, and execution timeouts.
+
+The main tasks are:
+
+1. `ingest_apis` — Collect environmental data from public APIs.
+2. `upload_to_volume` — Upload the ingested files to a Databricks Unity Catalog Volume.
+3. `run_bronze_silver` — Trigger Databricks Bronze and Silver processing.
+4. `trigger_dbt_cloud_job` — Trigger dbt transformations and analytical model builds.
+5. `refresh_duckdb` — Refresh the local DuckDB serving database.
+
+The scheduled pipeline coordinates both cloud processing and local serving-data refreshes. The dashboard itself does not trigger the DAG when users adjust filters.
 
 ## Getting Started
 
-AirLens depends on external API access, a configured Databricks environment, and the project's Python, dbt, and Airflow setup.
-
 ### Prerequisites
 
-- Python environment with the project's dependencies installed
-- Access credentials or API keys required by the selected data sources
-- Databricks Free Edition workspace with the required Unity Catalog resources
-- dbt configured to connect to the Databricks target
-- Apache Airflow configured to run the project's ingestion and processing workflow
+- Python version compatible with the project dependencies and configured Airflow environment.
+- [uv](https://docs.astral.sh/uv/)
+- [Docker](https://www.docker.com/) and Docker Compose.
+- API credentials for the configured data sources.
+- A Databricks workspace with the required Unity Catalog Volume and processing job.
+- A dbt Cloud account and configured job.
 
-### Configuration
+### 1. Clone the repository
 
-Before running the pipeline, configure the credentials, connection settings, and environment-specific values required by the API integrations, Databricks, dbt, and Airflow.
+```bash
+git clone https://github.com/phile11/aq2databricks.git
+cd aq2databricks
+```
 
-**Keep secrets out of source control.** Use the project's configured environment variables or secret-management mechanism for credentials.
+### 2. Configure Python dependencies
 
-### Running the Pipeline
+Install the project dependencies using uv:
 
-The intended workflow is:
+```bash
+uv sync
+```
 
-1. Configure API access and the Databricks environment.
-2. Run the Airflow workflow to orchestrate the pipeline.
-3. Allow the ingestion and Databricks processing steps to execute.
-4. Build the dbt models in Databricks as part of the orchestrated workflow.
-5. Refresh or query the curated data through DuckDB and explore it in Streamlit.
+Verify that your installed Python version satisfies the version requirements in `pyproject.toml`.
 
-Refer to the repository's scripts, configuration files, and Airflow DAG for the exact deployment and execution commands.
+### 3. Configure environment variables
 
-## Project Goals
+Create the required environment configuration using the repository's expected variable names. Keep API keys, access tokens, and other secrets out of source control.
 
-AirLens was built to demonstrate practical data engineering skills across the full data lifecycle:
+The pipeline configuration may require:
 
-- Integrating multiple external data sources.
-- Ingesting data into a lakehouse environment.
-- Organizing datasets using a Bronze/Silver/Gold medallion architecture.
-- Transforming data with SQL and dbt.
-- Orchestrating an end-to-end pipeline with Apache Airflow.
-- Serving curated data through DuckDB.
-- Enabling interactive analysis with Streamlit.
+- `OPENWEATHER_KEY`
+- `WAQI_TOKEN`
+- `OPENAQ_KEY`
+- `DATABRICKS_HOST`
+- `DATABRICKS_TOKEN`
+- `DATABRICKS_JOB_ID`
+- `DBT_CLOUD_API_TOKEN`
+- `DBT_CLOUD_ACCOUNT_ID`
+- `DBT_CLOUD_JOB_ID`
+
+Confirm the exact variable names and required values against the Airflow DAG and your cloud configuration before running the pipeline.
+
+### 4. Start Airflow
+
+From the repository root:
+
+```bash
+cd airflow
+docker compose up --build -d
+```
+
+Open the Airflow UI at `http://localhost:8081` if that matches the port mapping in your Compose configuration.
+
+Configure the required connections and environment variables, verify the DAG configuration, and enable the pipeline when ready to run it.
+
+### 5. Build the local serving database
+
+From the repository root, run:
+
+```bash
+uv run python serving/build_duckdb.py
+```
+
+This prepares the local DuckDB serving tables from the available local landing data.
+
+### 6. Launch the Streamlit dashboard
+
+From the repository root:
+
+```bash
+uv run streamlit run app/streamlit_app.py
+```
+
+Use the dashboard to explore the available air quality and weather data.
+
+**Note:** The local serving workflow requires the expected landing files to be present. Running the DuckDB build does not, by itself, execute the Databricks or dbt cloud pipeline.
+
+## Repository Structure
+
+```text
+aq2databricks/
+├── airflow/
+│   ├── dags/
+│   │   └── airlens_dag.py
+│   └── docker-compose.yml
+├── app/
+│   └── streamlit_app.py
+├── models/
+│   ├── staging/
+│   │   ├── stg_air_quality.sql
+│   │   ├── stg_stations.sql
+│   │   └── stg_weather.sql
+│   ├── marts/
+│   │   ├── mart_city_air_quality.sql
+│   │   ├── mart_city_daily.sql
+│   │   └── mart_station_coverage.sql
+│   └── schema.yml
+├── resources/
+│   └── airlens_ingest_local.py
+├── serving/
+│   └── build_duckdb.py
+├── dbt_project.yml
+└── pyproject.toml
+```
+
+## Project Objectives
+
+AirLens demonstrates practical experience with:
+
+- Building Python-based ingestion pipelines from multiple public APIs.
+- Designing a medallion architecture in Databricks.
+- Harmonizing data from sources with different structures and measurement conventions.
+- Developing reusable SQL transformations and analytical marts with dbt.
+- Applying data quality tests and incremental modeling strategies.
+- Orchestrating dependent workflows with Apache Airflow.
+- Separating cloud transformation workloads from interactive analytical serving.
+- Building a lightweight analytics interface with DuckDB and Streamlit.
+- Considering data freshness, source traceability, and cloud compute efficiency in architectural decisions.
 
 ## Future Enhancements
 
-Potential future improvements include expanding automated data quality checks, strengthening observability and failure alerting, and extending analytical models and dashboard capabilities.
+Potential extensions include automated pipeline health reporting, expanded data quality monitoring, improved failure notifications, and an optional serving path that consumes published Gold marts when a unified cloud-to-dashboard data lineage is desirable.
 
 ---
 
-**Built as a hands-on data engineering portfolio project** to explore modern lakehouse architecture, orchestration, transformation, and analytics delivery.
+**AirLens** brings together cloud data engineering, workflow orchestration, analytical modeling, and interactive data exploration in a single portfolio project.
