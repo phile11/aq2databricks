@@ -139,11 +139,11 @@ Dashboard capabilities include:
 
 The dashboard queries DuckDB, allowing users to adjust filters without launching cloud processing. Data freshness depends on the most recent local data refres. Airflow is used to try to ensure freshness as the local DuckDb refresh step is the last task in the pipeline DAG.
 
-<img src="images/map_aqi.svg" alt="map" width="400">
+<img src="images/map_aqi.png" alt="map" width="100%">
 
-<img src="images/city_data.svg" alt="city data" width="400">
+<img src="images/city_data.png" alt="city data" width="100%">
 
-<img src="images/airlens_alerts" alt="alerts" width="400">
+<img src="images/airlens_alerts.png" alt="alerts" width="100%">
 
 ## Data Quality and Modeling Considerations
 
