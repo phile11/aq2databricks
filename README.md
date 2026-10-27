@@ -44,8 +44,11 @@ flowchart TD
     DBT -. "Builds Gold models" .-> GO
     GO --> DU
 
-    AF -. "Orchestrates ingestion and pipeline tasks" .-> PY
-    AF -. "Coordinates transformation workflow" .-> DBT
+    AF -. "1) Orchestrates ingestion and pipeline tasks" .-> PY
+    AF -. "2) Loads Raw data in the Landing Volume in UC" .-> VOL
+    AF -. "3) Runs Bronze and Silver notebooks in Databricks" .-> BR
+    AF -. "4) Triggers transformation workflow" .-> DBT
+    AF -. "5) Refreshes DuckDB" .-> DU
 ```
 
 ### Pipeline Overview
